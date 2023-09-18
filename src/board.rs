@@ -1,5 +1,19 @@
+use std::error::Error;
+use std::result::Result;
+use std::fmt as fmt;
+use std::cell::RefCell;
+
 pub struct Board {
-    board: Vec<Vec<Tile>>,
+    board: Vec<Vec<RefCell<Tile>>>,
+}
+
+#[derive(Debug)]
+struct ClosedTileError;
+impl Error for ClosedTileError {}
+impl fmt::Display for ClosedTileError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Tried to access fields for a Closed Tile.")
+    }
 }
 
 #[derive(Debug)]
@@ -64,8 +78,8 @@ impl FreeTile {
 
 impl Board {
     pub fn new(row_count: usize, col_count: usize) -> Board {
-       let tiles : Vec<Vec<Tile>> =  (0..row_count).map(|r| (0..col_count).map(|c| {
-            match (r, c) {
+       let tiles : Vec<Vec<RefCell<Tile>>> =  (0..row_count).map(|r| (0..col_count).map(|c| {
+            let t : Tile = match (r, c) {
                 (0, _) => Tile::Edge,
                 (_, 0) => Tile::Edge,
                 _ => Tile::Free(FreeTile::new(
@@ -76,12 +90,69 @@ impl Board {
                     (r+1, if r%2==0 { c-1 } else { c }),
                     (r+1, if r%2==0 { c } else { c+1 }),
                 )),
-            }
+            };
+            RefCell::new(t)
         }).collect()).collect();
         Board {
             board: tiles,
         }
     }
 
+    fn get_tile(&self, (r, c): (usize, usize)) -> &RefCell<Tile> {
+        if r >= self.board.len() || c > self.board.get(r).unwrap().len() {
+            panic!("Row or Col access for board is out of bounds!");
+        }
+        self.board.get(r).unwrap().get(c).unwrap()
+    }
 
+    fn remove_neighbor_connections(&self, tile: &FreeTile) -> Result<(), ClosedTileError> {
+        match &mut *self.get_tile(tile.top_left.ok_or(ClosedTileError)?).borrow_mut() {
+            Tile::Free(ft) => { 
+                ft.block_bot_right();
+            },
+            _ => ()
+        };
+        match &mut *self.get_tile(tile.top_right.ok_or(ClosedTileError)?).borrow_mut() {
+            Tile::Free(ft) => { 
+                ft.block_bot_right();
+            }
+            _ => ()
+        };
+        match &mut *self.get_tile(tile.right.ok_or(ClosedTileError)?).borrow_mut() {
+            Tile::Free(ft) => { 
+                ft.block_left();
+            }
+            _ => ()
+        };  
+        match &mut *self.get_tile(tile.bot_right.ok_or(ClosedTileError)?).borrow_mut() {
+            Tile::Free(ft) => { 
+                ft.block_top_left();
+            }
+            _ => ()
+        };  
+        match &mut *self.get_tile(tile.bot_left.ok_or(ClosedTileError)?).borrow_mut() {
+            Tile::Free(ft) => { 
+                ft.block_top_right();
+            }
+            _ => ()
+        };  
+        match &mut *self.get_tile(tile.left.ok_or(ClosedTileError)?).borrow_mut() {
+            Tile::Free(ft) => { 
+                ft.block_right();
+            }
+            _ => ()
+        };  
+        return Result::Ok(());
+    }
+
+    pub fn place_block(&self, r: usize, c: usize) -> () {
+        let tile = self.board.get(r).unwrap().get(c).unwrap();
+        match &*tile.borrow() {
+            Tile::Free(ft) => {
+                self.remove_neighbor_connections(&ft);
+            }
+            _ => ()
+        }
+        self.board.get(r).unwrap().get(c).unwrap().replace_with(|old| Tile::Blocked);
+    }
 }
