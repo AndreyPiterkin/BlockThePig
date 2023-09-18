@@ -1,5 +1,5 @@
-mod graph;
-use crate::graph::Board;
+mod board;
+use crate::board::Board;
 
 fn main() {
     let board: Board = Board::new(10, 10);
