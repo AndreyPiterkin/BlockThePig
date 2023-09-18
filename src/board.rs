@@ -16,7 +16,7 @@ impl fmt::Display for ClosedTileError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Tile {
     Free(FreeTile),
     Edge,
@@ -28,7 +28,7 @@ pub enum Tile {
 * It has a collection of neighbors, guaranteed to be sorted 
 * from top-left, moving clockwise and ending at right.
 */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FreeTile {
     top_left: Option<(usize, usize)>,
     top_right: Option<(usize, usize)>,
@@ -98,7 +98,7 @@ impl Board {
         }
     }
 
-    fn get_tile(&self, (r, c): (usize, usize)) -> &RefCell<Tile> {
+    pub fn get_tile(&self, (r, c): (usize, usize)) -> &RefCell<Tile> {
         if r >= self.board.len() || c > self.board.get(r).unwrap().len() {
             panic!("Row or Col access for board is out of bounds!");
         }
@@ -154,5 +154,9 @@ impl Board {
             _ => ()
         }
         self.board.get(r).unwrap().get(c).unwrap().replace_with(|old| Tile::Blocked);
+    }
+
+    pub fn get_dimensions(&self) -> (usize, usize) {
+        (self.board.len(), self.board.get(0).unwrap().len())
     }
 }
