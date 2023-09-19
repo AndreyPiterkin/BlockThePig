@@ -77,11 +77,15 @@ impl FreeTile {
 }
 
 impl Board {
-    pub fn new(row_count: usize, col_count: usize) -> Board {
-       let tiles : Vec<Vec<RefCell<Tile>>> =  (0..row_count).map(|r| (0..col_count).map(|c| {
+    pub fn new(rows: usize, cols: usize) -> Board {
+       let tiles : Vec<Vec<RefCell<Tile>>> =  (0..rows).map(|r| (0..cols).map(|c| {
+            let max_row = rows - 1;
+            let max_col = cols - 1;
             let t : Tile = match (r, c) {
                 (0, _) => Tile::Edge,
                 (_, 0) => Tile::Edge,
+                (max_row, _) => Tile::Edge,
+                (_, max_col) => Tile::Edge,
                 _ => Tile::Free(FreeTile::new(
                     (r, c-1),
                     (r, c+1),
@@ -99,8 +103,8 @@ impl Board {
     }
 
     pub fn get_tile(&self, (r, c): (usize, usize)) -> &RefCell<Tile> {
-        if r >= self.board.len() || c > self.board.get(r).unwrap().len() {
-            panic!("Row or Col access for board is out of bounds!");
+        if r >= self.board.len() || c >= self.board.get(r).unwrap().len() {
+            panic!("Row or Col access for board is out of bounds: {:?}", (r,c));
         }
         self.board.get(r).unwrap().get(c).unwrap()
     }
@@ -147,6 +151,11 @@ impl Board {
 
     pub fn place_block(&self, r: usize, c: usize) -> () {
         let tile = self.board.get(r).unwrap().get(c).unwrap();
+        if let Tile::Blocked = &*tile.borrow() {
+            println!("Can't place a tile on another tile!");
+            return;
+        }
+
         match &*tile.borrow() {
             Tile::Free(ft) => {
                 self.remove_neighbor_connections(&ft);
