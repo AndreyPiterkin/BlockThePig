@@ -52,6 +52,10 @@ impl GameInstance {
     }
 
     pub fn block(&mut self, (r, c): (usize, usize)) -> () {
-        self.board.place_block(r, c);
+        if self.pig_pos() != (r,c) {
+            self.board.place_block(r, c);
+        } else {
+            println!("Can't place the block on the pig!");
+        }
     }
 }
