@@ -1,7 +1,7 @@
 mod game;
 mod board;
 use game::GameInstance;
-use board::{Tile, FreeTile};
+use board::{Tile};
 use macroquad::prelude::*;
 
 static HEX_RADIUS: f32 = 20.0;
@@ -22,10 +22,10 @@ async fn main() {
         for r in 0..board_row_count {
             for c in 0..board_col_count {
                 let (x, y) = logical_to_screenspace(r, c);
-                if let Tile::Free(ft) = g.tile_at((r, c)){
-                    draw_hexagon(x, y, HEX_RADIUS, BORDER_THICKNESS, true, GRAY, GREEN);
-                } else {
+                if let Tile::Blocked = g.tile_at((r, c)){
                     draw_hexagon(x, y, HEX_RADIUS, BORDER_THICKNESS, true, GRAY, BLACK);
+                } else {
+                    draw_hexagon(x, y, HEX_RADIUS, BORDER_THICKNESS, true, GRAY, GREEN);
                 }
             }
         }
