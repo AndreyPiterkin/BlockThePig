@@ -1,7 +1,8 @@
 mod game;
+mod maps;
 mod board;
 use game::GameInstance;
-use board::{Tile};
+use board::Tile;
 use macroquad::prelude::*;
 
 static HEX_RADIUS: f32 = 20.0;
@@ -19,8 +20,8 @@ async fn main() {
         let (board_row_count, board_col_count) = g.get_dimensions();
 
         let (pig_y, pig_x) = g.pig_pos();
-        for r in 0..board_row_count {
-            for c in 0..board_col_count {
+        for r in 0..(board_row_count+1) {
+            for c in 0..(board_col_count+1) {
                 let (x, y) = logical_to_screenspace(r, c);
                 if let Tile::Blocked = g.tile_at((r, c)){
                     draw_hexagon(x, y, HEX_RADIUS, BORDER_THICKNESS, true, GRAY, BLACK);
