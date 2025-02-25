@@ -2,10 +2,13 @@ use std::cmp::max;
 use std::cmp::min;
 use std::collections::HashMap;
 
+use crate::posn::{Position, HexPosn};
+
 
 /**
  * Given that our board can take in potentially infinite iterators,
  * we define a constant which limits the number of tiles to an arbitrarily large value.
+ * TODO: refactor this away, allowing for truly infinite boards
  */
 const MAX_BOARD_SIZE: usize = 100;
 
@@ -13,8 +16,8 @@ const MAX_BOARD_SIZE: usize = 100;
 * The standard representation of a Block the Pig Board. It is a 
 * Map from positions (usize, usize) to Tiles at those positions.
 */
-pub struct Board {
-    board: HashMap<(usize, usize), Tile>,
+pub struct Board<P: Position> {
+    board: HashMap<P, Tile>,
 }
 
 
@@ -28,7 +31,7 @@ pub struct Board {
 * shaped boards, where exits may not be the edges of the standard 11x5
 * rectangular board.
 */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Tile {
     Free,
     Edge,
@@ -38,13 +41,13 @@ pub enum Tile {
 /**
 * Implementation of the board for Block the Pig.
 */
-impl Board {
+impl Board<HexPosn> {
 
     /**
     * Takes in an iterator that produces position-tile pairs, and populates
     * the board with them. Takes at most MAX_BOARD_SIZE tiles.
     */
-    pub fn new(blocks: impl Iterator<Item = ((usize, usize), Tile)>) -> Board {
+    pub fn new(blocks: impl Iterator<Item = (HexPosn, Tile)>) -> Board<HexPosn> {
         Board { 
             board: blocks.take(MAX_BOARD_SIZE).collect()
         }
@@ -56,43 +59,43 @@ impl Board {
     * I have chosen to make it a panic instead of a Result type for short term convenience; this is
     * subject to change.
     */
-    pub fn get_tile(&self, (r, c): (usize, usize)) -> &Tile {
-        if self.board.contains_key(&(r, c)) {
-            return self.board.get(&(r, c)).unwrap();
+    pub fn get_tile(&self, posn: HexPosn) -> Tile {
+        if self.board.contains_key(&posn) {
+            return *self.board.get(&posn).unwrap();
         } 
-        panic!("(row, column) pair does not exist in map: {:?}", (r,c));
+        panic!("posn does not exist in map: {:?}", posn);
     }
 
     /**
     * Places a block at the given position, unless there is already a Block there.
     */
-    pub fn place_block(&mut self, r: usize, c: usize) -> () {
-        if self.board.contains_key(&(r, c)) {
-            if let Some(Tile::Blocked) = self.board.get(&(r,c)) {
+    pub fn place_block(&mut self, posn: HexPosn) -> () {
+        if self.board.contains_key(&posn) {
+            if let Some(Tile::Blocked) = self.board.get(&posn) {
                 println!("Can't place a tile on another tile!");
-                return;
+            } else {
+                self.board.insert(posn, Tile::Blocked);
             }
         }
-
-        self.board.insert((r,c), Tile::Blocked);
     }
 
     /**
     * Returns the bounds of the board; that is, returns a pair of the top-left position
     * and the bottom right position, where top and left are negative, and bottom and right are
     * positive (i.e. graphics coordinates).
+    * TODO: implement this in HexPosn, to hide details of `usize`
     */
-    pub fn get_dimensions(&self) -> ((usize, usize), (usize, usize)) {
+    pub fn get_dimensions(&self) -> (HexPosn, HexPosn) {
         let mut row_max: usize = std::usize::MIN;
         let mut col_max: usize = std::usize::MIN;
         let mut row_min: usize = std::usize::MAX;
         let mut col_min: usize = std::usize::MAX;
-        for (r, c) in self.board.keys() {
+        for HexPosn { r, c } in self.board.keys() {
             row_max = max(*r, row_max);
             col_max = max(*c, col_max);
             row_min = min(*r, row_min);
             col_min = min(*c, col_min);
         } 
-        ((row_min, col_min), (row_max, col_max))
+        ((row_min, col_min).into(), (row_max, col_max).into())
     }
 }

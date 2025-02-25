@@ -1,6 +1,7 @@
 mod game;
 mod maps;
 mod board;
+mod posn;
 use game::GameInstance;
 use board::Tile;
 use macroquad::prelude::*;
@@ -14,16 +15,21 @@ static VERTICAL_LENGTH: f32 = 15.0;
 #[macroquad::main("Geblocken Das Schwein")]
 async fn main() {
     let mut g = GameInstance::classic_game();
-    
+
+    for _ in 0..5 {
+        clear_background(GREEN);
+        next_frame().await;
+    }
+
     loop {
         clear_background(GREEN);
         let (board_row_count, board_col_count) = g.get_dimensions();
 
-        let (pig_y, pig_x) = g.pig_pos();
-        for r in 0..(board_row_count+1) {
-            for c in 0..(board_col_count+1) {
+        let (pig_y, pig_x) = g.pig_pos().into();
+        for r in 0..board_row_count {
+            for c in 0..board_col_count {
                 let (x, y) = logical_to_screenspace(r, c);
-                if let Tile::Blocked = g.tile_at((r, c)){
+                if let Tile::Blocked = g.tile_at((r, c).into()){
                     draw_hexagon(x, y, HEX_RADIUS, BORDER_THICKNESS, true, GRAY, BLACK);
                 } else {
                     draw_hexagon(x, y, HEX_RADIUS, BORDER_THICKNESS, true, GRAY, GREEN);
@@ -33,15 +39,16 @@ async fn main() {
         
         let (pig_screen_x, pig_screen_y) = logical_to_screenspace(pig_y, pig_x);
         draw_circle(pig_screen_x, pig_screen_y, 10.0, PINK);
-        if is_mouse_button_released(MouseButton::Left) {
+
+        if is_mouse_button_pressed(MouseButton::Left) {
             let (x_pos, y_pos) = mouse_position();
             let logical_res = screenspace_to_logical(board_row_count, board_col_count, x_pos, y_pos);
             if let Some(coords) = logical_res {
                 let (r, c) = coords;
-                g.block((r, c));
+                g.block((r, c).into());
             }
         }
-        next_frame().await
+        next_frame().await;
     }
 }
 
@@ -55,7 +62,7 @@ fn screenspace_to_logical(row_count: usize, col_count: usize, x: f32, y: f32) ->
         }
     }
 
-    return Option::None;
+    Option::None
 
 }
 
@@ -66,5 +73,5 @@ fn logical_to_screenspace(r: usize, c: usize) -> (f32, f32) {
     }
 
     let y_pos = (r as f32) * VERTICAL_LENGTH * 2.0 + OFFSET;
-    return (x_pos, y_pos);
+    (x_pos, y_pos)
 }

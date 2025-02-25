@@ -1,4 +1,4 @@
-use crate::board::Tile;
+use crate::{board::Tile, posn::HexPosn};
 
 /**
 * Represents a classic, rectangular map for BtP. Can be constructed with more than 11 rows and 5
@@ -30,7 +30,7 @@ impl ClassicMap {
 * we must implement that trait for the classic map.
 */
 impl Iterator for ClassicMap {
-    type Item = ((usize, usize), Tile);
+    type Item = (HexPosn, Tile);
 
     /**
     * Produces the next tile-position pair in the sequence, or None if there are none left.
@@ -38,13 +38,14 @@ impl Iterator for ClassicMap {
     * Tiles, meaning the pig can escape, with every other tile being a Free Tile. Returns None when
     * we have produced all tiles.
     * TODO: Populate map with initial generation of blocked tiles.
+    * TODO: try to hide away the details of HexPosn using `usize`
     */
     fn next(&mut self) -> Option<Self::Item> {
         let ret: Option<Self::Item> = match (self.curr_r, self.curr_c) {
             (r, c) if (r >= self.r || c >= self.c) => None,
-            (r, c) if (r == self.r - 1 || c == self.c - 1) => Some(((r, c), Tile::Edge)),
-            (r, c) if (r == 0 || c == 0) => Some(((r, c), Tile::Edge)),
-            (r, c) => Some(((r, c), Tile::Free)),
+            (r, c) if (r == self.r - 1 || c == self.c - 1) => Some((HexPosn::from_vals(r, c), Tile::Edge)),
+            (r, c) if (r == 0 || c == 0) => Some((HexPosn::from_vals(r, c), Tile::Edge)),
+            (r, c) => Some((HexPosn::from_vals(r, c), Tile::Free)),
         };
 
         if self.curr_c >= self.c - 1 {
