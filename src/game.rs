@@ -1,7 +1,8 @@
 use std::collections::{HashSet, VecDeque};
+use std::cmp::Ordering;
 
 use crate::board::{Board, ClassicTile, Tile};
-use crate::posn::{Position, HexPosn};
+use crate::posn::{Position, HexPosn, HexDirection};
 use crate::maps::ClassicMap;
 
 /**
@@ -10,6 +11,7 @@ use crate::maps::ClassicMap;
 pub struct GameInstance<P: Position, T: Tile> {
     board: Board<P, T>,
     pig: Box<dyn Pig<P, T>>,
+    free_blocks: usize,
 }
 
 /**
@@ -17,7 +19,7 @@ pub struct GameInstance<P: Position, T: Tile> {
 * and a movement strategy with which the pig determines where to move next.
 */
 pub trait Pig<P: Position, T: Tile> {
-    fn r#move(&self, board: Board<P, T>) -> P;
+    fn move_pig(&mut self, board: &Board<P, T>) -> Option<P>;
     fn position(&self) -> P;
 }
 
@@ -26,7 +28,6 @@ pub trait Pig<P: Position, T: Tile> {
 */
 pub struct ClassicPig {
     pub position: HexPosn,
-    max_scan_dist: usize,
 }
 
 impl ClassicPig {
@@ -39,38 +40,68 @@ impl ClassicPig {
     {
         ClassicPig {
             position: (5, 2).into(),
-            max_scan_dist: usize::MAX,
         } 
     }
 }
 
 impl Pig<HexPosn, ClassicTile> for ClassicPig {
-    fn r#move(&self, board: Board<HexPosn, ClassicTile>) -> HexPosn {
-        let mut queue: VecDeque<HexPosn> = VecDeque::new();
-        queue.push_front(self.position);
+    fn move_pig(&mut self, board: &Board<HexPosn, ClassicTile>) -> Option<HexPosn> {
+        let mut queue: VecDeque<(HexPosn, Vec<(HexDirection, HexPosn)>)> = VecDeque::new();
+        queue.push_back((self.position, vec![]));
         let mut seen_set: HashSet<HexPosn> = HashSet::new();
-        seen_set.insert(self.position);
+        let mut equidistant_exits: Vec<Vec<(HexDirection, HexPosn)>> = vec![];
+        let mut found_exit = false;
 
-        while queue.len() > 0 {
+        while queue.len() > 0 && !found_exit {
             let level_len = queue.len();
             for _ in 0..level_len {
                 // Queue should never be empty inside a level
-                let curr_pos = queue.pop_back().unwrap(); 
+                let (curr_pos, moves) = queue.pop_front().unwrap(); 
+                if seen_set.contains(&curr_pos) {
+                    continue;
+                }
 
-                board.get_tile(curr_pos);
+                let curr_tile = board.get_tile(curr_pos);
+                if curr_tile.is_some_and(|t| t.is_exit()) {
+                    found_exit = true; 
+                    equidistant_exits.push(moves.clone());
+                    continue;
+                }
+
+                let neighbors = curr_pos.get_neighbors();
+                for (d, p) in &neighbors {
+                    let tile = board.get_tile(*p);
+                    if tile.is_some_and(|t| t.is_passable()) && !seen_set.contains(p) {
+                        let mut updated_moves = moves.clone();
+                        updated_moves.push((*d, curr_pos));
+                        queue.push_back((*p, updated_moves));
+                    }
+                }
+
+                seen_set.insert(curr_pos);
             }
         }
 
-        // Approximately: level order BFS
-        // Go outward until the closest exit is found, then complete the level
-        // (Maybe) cache the seen set between moves
-        // Collect all of the possible paths to equidistant exists (manhattan distance combinations on hex grid)
-        // Sort by classical ordering (topleft > topright > left > right > bottomleft > bottomright), then move
-        // (Maybe) cache this list of paths
-        // On next move call, filter out paths with blocked points
-        // perform BFS again, skipping past cached seen positions
-        // insert new paths of same distance into the list maintaining sorted order)
-        self.position
+        equidistant_exits.sort_by(|moves1, moves2| {
+            moves1.into_iter().zip(moves2.into_iter())
+                .map(|((d1, _), (d2, _))| d2.partial_cmp(d1).unwrap())
+                .fold(Ordering::Equal, |acc, next|
+                    match (acc, next) {
+                        (Ordering::Greater, _) => Ordering::Greater,
+                        (Ordering::Equal, v) => v,
+                        (Ordering::Less, _) => Ordering::Less,
+                    }
+                )
+        });
+
+        // Pig is blocked
+        if equidistant_exits.len() == 0 {
+            return None;
+        }
+
+        let (dir, pos) = equidistant_exits.first().unwrap().first().unwrap();
+        self.position = pos.get_neighbor(*dir);
+        Some(self.position)
     }
 
     fn position(&self) -> HexPosn {
@@ -90,7 +121,8 @@ impl GameInstance<HexPosn, ClassicTile> {
     pub fn classic() -> Self {
         GameInstance {
             board: Board::new(ClassicMap::new(11, 5)),
-            pig: Box::new(ClassicPig::new())
+            pig: Box::new(ClassicPig::new()),
+            free_blocks: 4
         }
     }
 
@@ -100,7 +132,7 @@ impl GameInstance<HexPosn, ClassicTile> {
     * TODO: some leakage of dimension information; also this isn't even really a sensible question,
     * since boards can have irregular shape
     */
-    pub fn get_dimensions(&self) -> (usize, usize) {
+    pub fn get_dimensions(&self) -> (isize, isize) {
         let (HexPosn { r: br, c: bc }, HexPosn { r: er, c: ec }) = self.board.get_dimensions();
         (er - br + 1, ec - bc + 1)
     }
@@ -118,10 +150,21 @@ impl GameInstance<HexPosn, ClassicTile> {
 
     /**
     * Places a block at the given location, printing if incorrect.
+    * Some(false) => did not win, pig won
+    * Some(true) => player won
     */
-    pub fn block(&mut self, p: HexPosn) -> Result<(), String> {
+    pub fn block(&mut self, p: HexPosn) -> Result<Option<bool>, String> {
         if self.pig_pos() != p {
-            self.board.place(p, ClassicTile::Block)
+            let res = self.board.place(p, ClassicTile::Block);
+            if self.free_blocks > 0 {
+                self.free_blocks -= 1;
+            } else {
+                if self.pig.move_pig(&self.board).is_none() {
+                    return Ok(Some(true));
+                }
+            }
+            let is_game_over = self.board.get_tile(self.pig_pos()).expect("pig ended up outside the map?").is_exit().then_some(false);
+            res.and(Ok(is_game_over))
         } else {
             Err("Can't place a block onto the pig".to_string())
         }

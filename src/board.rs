@@ -22,6 +22,8 @@ pub struct Board<P: Position, T: Tile> {
 pub trait Tile: Sized + Clone + Copy {
     // Can this tile be walked on by the pig
     fn is_passable(&self) -> bool;
+    // Is this tile an exit?
+    fn is_exit(&self) -> bool;
     // Place the other tile onto this one, returning the resulting tile
     fn place_onto(&self, other: Self) -> Result<Self, String>;
     // TODO: further info, like tile actions?
@@ -58,6 +60,13 @@ impl Tile for ClassicTile {
             (ClassicTile::Edge | ClassicTile::Free, ClassicTile::Block) => Ok(ClassicTile::Block),
             _ => Err("Can't place a block over a block".to_string())
        } 
+    }
+
+    fn is_exit(&self) -> bool {
+        match self {
+            ClassicTile::Edge => true,
+            _ => false
+        }
     }
 }
 

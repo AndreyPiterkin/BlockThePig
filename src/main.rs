@@ -3,7 +3,7 @@ mod maps;
 mod board;
 mod posn;
 use game::GameInstance;
-use board::{ClassicTile};
+use board::ClassicTile;
 use macroquad::prelude::*;
 
 static HEX_RADIUS: f32 = 20.0;
@@ -15,14 +15,15 @@ static VERTICAL_LENGTH: f32 = 15.0;
 #[macroquad::main("Geblocken Das Schwein")]
 async fn main() {
     let mut g = GameInstance::classic();
+    let mut color = GREEN;
 
-    for _ in 0..5 {
-        clear_background(GREEN);
+    for _ in 0..10 {
+        clear_background(color);
         next_frame().await;
     }
 
     loop {
-        clear_background(GREEN);
+        clear_background(color);
         let (board_row_count, board_col_count) = g.get_dimensions();
 
         let (pig_y, pig_x) = g.pig_pos().into();
@@ -46,6 +47,9 @@ async fn main() {
             if let Some(coords) = logical_res {
                 let (r, c) = coords;
                 match g.block((r, c).into()) {
+                    Ok(Some(b)) => {
+                        color = if b { BLUE } else { RED };
+                    },
                     Err(msg) => println!("{}", msg),
                     _ => ()
                 }
@@ -55,7 +59,7 @@ async fn main() {
     }
 }
 
-fn screenspace_to_logical(row_count: usize, col_count: usize, x: f32, y: f32) -> Option<(usize, usize)> {
+fn screenspace_to_logical(row_count: isize, col_count: isize, x: f32, y: f32) -> Option<(isize, isize)> {
     for r in 0..row_count {
         for c in 0..col_count {
             let (x_pos, y_pos) = logical_to_screenspace(r, c);
@@ -69,7 +73,7 @@ fn screenspace_to_logical(row_count: usize, col_count: usize, x: f32, y: f32) ->
 
 }
 
-fn logical_to_screenspace(r: usize, c: usize) -> (f32, f32) {
+fn logical_to_screenspace(r: isize, c: isize) -> (f32, f32) {
     let mut x_pos = (c as f32) * SIDEWAYS_LENGTH * 2.0 + OFFSET;
     if r % 2 == 1 {
         x_pos += SIDEWAYS_LENGTH;

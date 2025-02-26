@@ -7,10 +7,10 @@ use crate::{board::{ClassicTile, Tile}, posn::HexPosn};
 * though that is a far stretch goal, and unclear how it should be implemented.
 */
 pub struct ClassicMap {
-    r: usize,
-    c: usize,
-    curr_r: usize,
-    curr_c: usize,
+    r: isize,
+    c: isize,
+    curr_r: isize,
+    curr_c: isize,
 }
 
 /**
@@ -20,7 +20,7 @@ impl ClassicMap {
     /**
     * Given a row size and column size, create a new classic map.
     */
-    pub fn new(r: usize, c: usize) -> ClassicMap {
+    pub fn new(r: isize, c: isize) -> ClassicMap {
         ClassicMap { r, c, curr_r: 0, curr_c: 0 }
     }
 }
