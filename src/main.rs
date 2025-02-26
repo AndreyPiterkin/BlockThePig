@@ -3,7 +3,7 @@ mod maps;
 mod board;
 mod posn;
 use game::GameInstance;
-use board::Tile;
+use board::{ClassicTile};
 use macroquad::prelude::*;
 
 static HEX_RADIUS: f32 = 20.0;
@@ -14,7 +14,7 @@ static VERTICAL_LENGTH: f32 = 15.0;
 
 #[macroquad::main("Geblocken Das Schwein")]
 async fn main() {
-    let mut g = GameInstance::classic_game();
+    let mut g = GameInstance::classic();
 
     for _ in 0..5 {
         clear_background(GREEN);
@@ -29,7 +29,7 @@ async fn main() {
         for r in 0..board_row_count {
             for c in 0..board_col_count {
                 let (x, y) = logical_to_screenspace(r, c);
-                if let Tile::Blocked = g.tile_at((r, c).into()){
+                if let Some(ClassicTile::Block) = g.tile_at((r, c).into()){
                     draw_hexagon(x, y, HEX_RADIUS, BORDER_THICKNESS, true, GRAY, BLACK);
                 } else {
                     draw_hexagon(x, y, HEX_RADIUS, BORDER_THICKNESS, true, GRAY, GREEN);
@@ -45,7 +45,10 @@ async fn main() {
             let logical_res = screenspace_to_logical(board_row_count, board_col_count, x_pos, y_pos);
             if let Some(coords) = logical_res {
                 let (r, c) = coords;
-                g.block((r, c).into());
+                match g.block((r, c).into()) {
+                    Err(msg) => println!("{}", msg),
+                    _ => ()
+                }
             }
         }
         next_frame().await;

@@ -1,5 +1,3 @@
-use std::cmp::max;
-use std::cmp::min;
 use std::collections::HashMap;
 
 use crate::posn::{Position, HexPosn};
@@ -16,8 +14,17 @@ const MAX_BOARD_SIZE: usize = 100;
 * The standard representation of a Block the Pig Board. It is a 
 * Map from positions (usize, usize) to Tiles at those positions.
 */
-pub struct Board<P: Position> {
-    board: HashMap<P, Tile>,
+pub struct Board<P: Position, T: Tile> {
+    board: HashMap<P, T>,
+}
+
+
+pub trait Tile: Sized + Clone + Copy {
+    // Can this tile be walked on by the pig
+    fn is_passable(&self) -> bool;
+    // Place the other tile onto this one, returning the resulting tile
+    fn place_onto(&self, other: Self) -> Result<Self, String>;
+    // TODO: further info, like tile actions?
 }
 
 
@@ -32,22 +39,38 @@ pub struct Board<P: Position> {
 * rectangular board.
 */
 #[derive(Debug, Clone, Copy)]
-pub enum Tile {
+pub enum ClassicTile {
     Free,
     Edge,
-    Blocked,
+    Block,
+}
+
+impl Tile for ClassicTile {
+    fn is_passable(&self) -> bool {
+        match self {
+            ClassicTile::Block => false,
+            _ => true
+        }
+    }
+
+    fn place_onto(&self, other: Self) -> Result<Self, String> {
+       match (self, other) {
+            (ClassicTile::Edge | ClassicTile::Free, ClassicTile::Block) => Ok(ClassicTile::Block),
+            _ => Err("Can't place a block over a block".to_string())
+       } 
+    }
 }
 
 /**
-* Implementation of the board for Block the Pig.
+* Generic implementation of the board for Block the Pig.
 */
-impl Board<HexPosn> {
+impl<P: Position, T: Tile> Board<P, T> {
 
     /**
     * Takes in an iterator that produces position-tile pairs, and populates
     * the board with them. Takes at most MAX_BOARD_SIZE tiles.
     */
-    pub fn new(blocks: impl Iterator<Item = (HexPosn, Tile)>) -> Board<HexPosn> {
+    pub fn new(blocks: impl Iterator<Item = (P, T)>) -> Self {
         Board { 
             board: blocks.take(MAX_BOARD_SIZE).collect()
         }
@@ -59,43 +82,28 @@ impl Board<HexPosn> {
     * I have chosen to make it a panic instead of a Result type for short term convenience; this is
     * subject to change.
     */
-    pub fn get_tile(&self, posn: HexPosn) -> Tile {
-        if self.board.contains_key(&posn) {
-            return *self.board.get(&posn).unwrap();
-        } 
-        panic!("posn does not exist in map: {:?}", posn);
+    pub fn get_tile(&self, posn: P) -> Option<T> {
+        // TODO: maybe a bounds check? 
+        self.board.get(&posn).cloned()
     }
 
     /**
-    * Places a block at the given position, unless there is already a Block there.
+    * Places a block at the given position if it can be placed
     */
-    pub fn place_block(&mut self, posn: HexPosn) -> () {
-        if self.board.contains_key(&posn) {
-            if let Some(Tile::Blocked) = self.board.get(&posn) {
-                println!("Can't place a tile on another tile!");
-            } else {
-                self.board.insert(posn, Tile::Blocked);
-            }
-        }
+    pub fn place(&mut self, posn: P, tile: T) -> Result<(), String> {
+        self.get_tile(posn)
+            .ok_or("Can't place a tile outside of the map".to_string())
+            .and_then(|curr_tile| curr_tile.place_onto(tile))
+            .and_then(|new_tile| {
+                self.board.insert(posn, new_tile);
+                Ok(())
+            })
     }
 
     /**
-    * Returns the bounds of the board; that is, returns a pair of the top-left position
-    * and the bottom right position, where top and left are negative, and bottom and right are
-    * positive (i.e. graphics coordinates).
-    * TODO: implement this in HexPosn, to hide details of `usize`
+    * Returns two positions that bound the entire playable gamespace, inclusive on both bounds
     */
-    pub fn get_dimensions(&self) -> (HexPosn, HexPosn) {
-        let mut row_max: usize = std::usize::MIN;
-        let mut col_max: usize = std::usize::MIN;
-        let mut row_min: usize = std::usize::MAX;
-        let mut col_min: usize = std::usize::MAX;
-        for HexPosn { r, c } in self.board.keys() {
-            row_max = max(*r, row_max);
-            col_max = max(*c, col_max);
-            row_min = min(*r, row_min);
-            col_min = min(*c, col_min);
-        } 
-        ((row_min, col_min).into(), (row_max, col_max).into())
+    pub fn get_dimensions(&self) -> (P, P) {
+        P::get_bounds(self.board.keys().into_iter().cloned())
     }
 }

@@ -6,6 +6,11 @@
  * The actual coords depend on the row the original one is in.
  */
 
+use std::cmp::max;
+use std::cmp::min;
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::iter::Iterator;
 use std::collections::HashMap;
 
 #[derive(Hash, PartialEq, Eq, Copy, Clone, Debug)]
@@ -24,9 +29,12 @@ pub enum HexDirection {
     BotRight
 }
 
-pub trait Position {
+pub trait Position: Sized + Copy + Clone + PartialEq + Eq + Hash + Debug {
     type Dir;
-    fn get_neighbors(&self) -> HashMap<Self::Dir, Box<Self>>;
+    fn get_neighbors(&self) -> HashMap<Self::Dir, Self>;
+    fn get_bounding_coords(&self, p: Self) -> (Self, Self);
+    fn get_bounds(coords: impl Iterator<Item = Self>) -> (Self, Self);
+    fn in_bounds(&self, bounds: (Self, Self)) -> bool;
 }
 
 impl HexPosn {
@@ -54,18 +62,36 @@ impl Into<(usize, usize)> for HexPosn {
 // TODO: do this more nicely?
 impl Position for HexPosn {
     type Dir = HexDirection;
-    fn get_neighbors(&self) -> HashMap<HexDirection, Box<Self>> {
+    fn get_neighbors(&self) -> HashMap<Self::Dir, Self> {
         let r = self.r;
         let c = self.c;
         let row_offset = r % 2;
         let mut h = HashMap::new();
-        h.insert(HexDirection::UpLeft, Box::new(HexPosn::from((r - 1, c - 1 + row_offset))));
-        h.insert(HexDirection::UpRight, Box::new(HexPosn::from((r - 1, c + row_offset))));
-        h.insert(HexDirection::Right, Box::new(HexPosn::from((r, c + 1))));
-        h.insert(HexDirection::BotLeft, Box::new(HexPosn::from((r + 1, c + row_offset))));
-        h.insert(HexDirection::BotRight, Box::new(HexPosn::from((r + 1, c - 1 + row_offset))));
-        h.insert(HexDirection::Left, Box::new(HexPosn::from((r, c - 1))));
+        h.insert(HexDirection::UpLeft, HexPosn::from((r - 1, c - 1 + row_offset)));
+        h.insert(HexDirection::UpRight, HexPosn::from((r - 1, c + row_offset)));
+        h.insert(HexDirection::Right, HexPosn::from((r, c + 1)));
+        h.insert(HexDirection::BotLeft, HexPosn::from((r + 1, c + row_offset)));
+        h.insert(HexDirection::BotRight, HexPosn::from((r + 1, c - 1 + row_offset)));
+        h.insert(HexDirection::Left, HexPosn::from((r, c - 1)));
 
         h
     }
+
+    fn get_bounding_coords(&self, p: Self) -> (Self, Self) {
+        ((min(self.r, p.r), min(self.c, p.c)).into(), (max(self.r, p.r), max(self.c, p.c)).into())
+    }
+
+    fn get_bounds(coords: impl Iterator<Item = Self>) -> (Self, Self) {
+        coords.fold(((0,0).into(), (0,0).into()), |(minp, maxp), next| {
+            let (new_min, _) = minp.get_bounding_coords(next);
+            let (_, new_max) = maxp.get_bounding_coords(next);
+            (new_min, new_max)
+        })
+    }
+
+    fn in_bounds(&self, bounds: (Self, Self)) -> bool {
+        let (minb, maxb) = bounds; 
+        (minb.r <= self.r && self.r <= maxb.r) && (minb.c <= self.c && self.c <= maxb.c)
+    }
 }
+
