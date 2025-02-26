@@ -156,15 +156,17 @@ impl GameInstance<HexPosn, ClassicTile> {
     pub fn block(&mut self, p: HexPosn) -> Result<Option<bool>, String> {
         if self.pig_pos() != p {
             let res = self.board.place(p, ClassicTile::Block);
-            if self.free_blocks > 0 {
-                self.free_blocks -= 1;
-            } else {
-                if self.pig.move_pig(&self.board).is_none() {
-                    return Ok(Some(true));
+            res.and_then(|_| {
+                if self.free_blocks > 0 {
+                    self.free_blocks -= 1;
+                    Ok(None)
+                } else {
+                    match self.pig.move_pig(&self.board) {
+                        Some(new_pos) => Ok(self.board.get_tile(new_pos).expect("pig ended up outside the map?").is_exit().then_some(false)),
+                        None => Ok(Some(true)),
+                    }
                 }
-            }
-            let is_game_over = self.board.get_tile(self.pig_pos()).expect("pig ended up outside the map?").is_exit().then_some(false);
-            res.and(Ok(is_game_over))
+            })
         } else {
             Err("Can't place a block onto the pig".to_string())
         }
