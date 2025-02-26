@@ -77,7 +77,7 @@ impl PartialOrd for HexDirection {
 
 pub trait Position: Sized + Copy + Clone + PartialEq + Eq + Hash + Debug {
     type Dir;
-    fn get_neighbors(&self) -> HashMap<Self::Dir, Self>;
+    fn get_neighbors(&self) -> Vec<(Self::Dir, Self)>;
     fn get_bounding_coords(&self, p: Self) -> (Self, Self);
     fn get_bounds(coords: impl Iterator<Item = Self>) -> (Self, Self);
     fn in_bounds(&self, bounds: (Self, Self)) -> bool;
@@ -105,6 +105,18 @@ impl Into<(isize, isize)> for HexPosn {
     }
 }
 
+impl From<(HexDirection, HexPosn)> for HexPosn {
+    fn from((d, p): (HexDirection, HexPosn)) -> Self {
+        p.get_neighbor(d) 
+    }
+}
+
+impl Into<Vec<(HexDirection, HexPosn)>> for HexPosn {
+    fn into(self) -> Vec<(HexDirection, HexPosn)> {
+        self.get_neighbors()
+    }
+}
+
 
 // TODO: do this more nicely?
 impl Position for HexPosn {
@@ -123,18 +135,17 @@ impl Position for HexPosn {
             HexDirection::Left => HexPosn::from((r, c - 1))
         }
     }
-
-    fn get_neighbors(&self) -> HashMap<Self::Dir, Self> {
-        HashMap::from_iter(
-            vec![
-                HexDirection::UpLeft,
-                HexDirection::UpRight,
-                HexDirection::Left,
-                HexDirection::Right,
-                HexDirection::BotLeft,
-                HexDirection::BotRight
-            ].into_iter().map(|dir| (dir, self.get_neighbor(dir)))
-        )
+    
+    // Vec to guarantee consistent ordering
+    fn get_neighbors(&self) -> Vec<(Self::Dir, Self)> {
+        vec![
+            HexDirection::UpLeft,
+            HexDirection::UpRight,
+            HexDirection::Left,
+            HexDirection::Right,
+            HexDirection::BotLeft,
+            HexDirection::BotRight
+        ].into_iter().map(|dir| (dir, self.get_neighbor(dir))).collect()
     }
 
     fn get_bounding_coords(&self, p: Self) -> (Self, Self) {

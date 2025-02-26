@@ -82,25 +82,13 @@ impl Pig<HexPosn, ClassicTile> for ClassicPig {
             }
         }
 
-        equidistant_exits.sort_by(|moves1, moves2| {
-            moves1.into_iter().zip(moves2.into_iter())
-                .map(|((d1, _), (d2, _))| d2.partial_cmp(d1).unwrap())
-                .fold(Ordering::Equal, |acc, next|
-                    match (acc, next) {
-                        (Ordering::Greater, _) => Ordering::Greater,
-                        (Ordering::Equal, v) => v,
-                        (Ordering::Less, _) => Ordering::Less,
-                    }
-                )
-        });
-
         // Pig is blocked
-        if equidistant_exits.len() == 0 {
+        if equidistant_exits.is_empty() {
             return None;
         }
 
-        let (dir, pos) = equidistant_exits.first().unwrap().first().unwrap();
-        self.position = pos.get_neighbor(*dir);
+        let pig_move = equidistant_exits.first().unwrap().first().unwrap();
+        self.position = HexPosn::from(*pig_move);
         Some(self.position)
     }
 
