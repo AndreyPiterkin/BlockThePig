@@ -1,4 +1,7 @@
-use crate::{board::{ClassicTile, Tile}, posn::HexPosn};
+use std::collections::HashSet;
+
+use crate::{board::ClassicTile, posn::HexPosn};
+use rand::Rng;
 
 /**
 * Represents a classic, rectangular map for BtP. Can be constructed with more than 11 rows and 5
@@ -11,6 +14,7 @@ pub struct ClassicMap {
     c: isize,
     curr_r: isize,
     curr_c: isize,
+    random_blocks: HashSet<HexPosn>,
 }
 
 /**
@@ -21,7 +25,15 @@ impl ClassicMap {
     * Given a row size and column size, create a new classic map.
     */
     pub fn new(r: isize, c: isize) -> ClassicMap {
-        ClassicMap { r, c, curr_r: 0, curr_c: 0 }
+        let mut rng = rand::thread_rng();
+        let num_random = rng.gen_range(3..10);
+        ClassicMap { 
+            r, 
+            c, 
+            curr_r: 0, 
+            curr_c: 0,
+            random_blocks: (0..num_random).map(|_| (rng.gen_range(0..r), rng.gen_range(0..c)).into()).collect() 
+        } 
     }
 }
 
@@ -45,6 +57,9 @@ impl Iterator for ClassicMap {
             (r, c) if (r >= self.r || c >= self.c) => None,
             (r, c) if (r == self.r - 1 || c == self.c - 1) => Some((HexPosn::from_vals(r, c), ClassicTile::Edge)),
             (r, c) if (r == 0 || c == 0) => Some((HexPosn::from_vals(r, c), ClassicTile::Edge)),
+            (r, c) if (r == 5 && c == 2) => Some(((r,c).into(), ClassicTile::Free)), // TODO:
+            // parameterize classic map over pig pos
+            (r, c) if self.random_blocks.contains(&(r, c).into()) => Some(((r, c).into(), ClassicTile::Block)),
             (r, c) => Some((HexPosn::from_vals(r, c), ClassicTile::Free)),
         };
 

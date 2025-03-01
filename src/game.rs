@@ -1,5 +1,4 @@
 use std::collections::{HashSet, VecDeque};
-use std::cmp::Ordering;
 
 use crate::board::{Board, ClassicTile, Tile};
 use crate::posn::{Position, HexPosn, HexDirection};
@@ -110,7 +109,7 @@ impl GameInstance<HexPosn, ClassicTile> {
         GameInstance {
             board: Board::new(ClassicMap::new(11, 5)),
             pig: Box::new(ClassicPig::new()),
-            free_blocks: 4
+            free_blocks: 2
         }
     }
 
